@@ -1,0 +1,20 @@
+# Environments
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Secrets
+.env
+
+# Generated vector store and processed chunks (regenerate via scripts/build_index.py)
+chroma_db/
+data/processed/*
+!data/processed/.gitkeep
+
+# Raw source PDFs are large and often re-downloadable — track a manifest instead
+data/raw/*.pdf
+!data/raw/.gitkeep
+
+# OS
+.DS_Store

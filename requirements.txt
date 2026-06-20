@@ -1,0 +1,27 @@
+# --- Core RAG orchestration ---
+langchain
+langchain-community
+langchain-google-genai
+langchain-chroma
+langchain-huggingface
+
+# --- Vector store (free, local, persistent — no signup) ---
+chromadb
+
+# --- Embeddings (free, runs locally on CPU — no API cost or quota) ---
+sentence-transformers
+
+# --- Document parsing ---
+pypdf
+pdfplumber
+pymupdf
+
+# --- Free web search fallback (no API key needed) ---
+duckduckgo-search
+
+# --- UI ---
+streamlit
+
+# --- Utilities ---
+python-dotenv
+tiktoken
