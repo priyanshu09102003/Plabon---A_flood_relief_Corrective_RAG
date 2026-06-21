@@ -4,6 +4,7 @@ langchain-community
 langchain-google-genai
 langchain-chroma
 langchain-huggingface
+langchain-text-splitters
 
 # --- Vector store (free, local, persistent — no signup) ---
 chromadb
@@ -25,3 +26,6 @@ streamlit
 # --- Utilities ---
 python-dotenv
 tiktoken
+
+pytesseract
+pdf2image

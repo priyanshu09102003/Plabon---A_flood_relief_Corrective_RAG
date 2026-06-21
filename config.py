@@ -28,6 +28,12 @@ class Settings:
     # --- Embeddings (free, local) ---
     embedding_model: str = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 
+    tesseract_cmd: str = os.getenv("TESSERACT_CMD", "")
+    poppler_path: str = os.getenv("POPPLER_PATH", "")
+
+    ocr_enabled: bool = os.getenv("OCR_ENABLED", "true").lower() == "true"
+    ocr_dpi: int = int(os.getenv("OCR_DPI", 200))
+
     # --- LLMs (model tiering: cheap grader, stronger generator) ---
     grader_model: str = os.getenv("GRADER_MODEL", "gemini-2.5-flash")
     generation_model: str = os.getenv("GENERATION_MODEL", "gemini-2.5-flash")
