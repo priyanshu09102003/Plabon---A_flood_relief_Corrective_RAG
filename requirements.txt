@@ -19,7 +19,7 @@ pdfplumber
 pymupdf
 
 # --- Free web search fallback ---
-duckduckgo-search
+ddgs
 
 # --- UI ---
 streamlit
