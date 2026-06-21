@@ -5,11 +5,12 @@ langchain-google-genai
 langchain-chroma
 langchain-huggingface
 langchain-text-splitters
+pydantic
 
-# --- Vector store (free, local, persistent — no signup) ---
+# --- Vector store ---
 chromadb
 
-# --- Embeddings (free, runs locally on CPU — no API cost or quota) ---
+# --- Embeddings ---
 sentence-transformers
 
 # --- Document parsing ---
@@ -17,7 +18,7 @@ pypdf
 pdfplumber
 pymupdf
 
-# --- Free web search fallback (no API key needed) ---
+# --- Free web search fallback ---
 duckduckgo-search
 
 # --- UI ---
