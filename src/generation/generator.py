@@ -21,8 +21,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from config import settings
 from src.websearch.search import format_web_results, web_search
 
-# Hardcoded — too safety-critical to be probabilistic (retrieval might
-# miss them; static context ensures they always appear).
+
 HELPLINE_BLOCK = """
 Emergency helplines (always valid regardless of query):
 - ASDMA (Assam State Disaster Management Authority): 1070 / 1079
