@@ -23,6 +23,10 @@ ddgs
 
 # --- UI ---
 streamlit
+streamlit-folium 
+streamlit-autorefresh
+folium 
+plotly
 
 # --- Utilities ---
 python-dotenv
