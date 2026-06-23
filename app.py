@@ -566,11 +566,7 @@ with tab_chat:
 
                 except Exception as e:
                     st.error(f"Pipeline error: {type(e).__name__}: {str(e)}")
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": error_msg,
-                        "web_used": False,
-                    })
+
 
                 finally:
                     st.session_state.is_generating = False
