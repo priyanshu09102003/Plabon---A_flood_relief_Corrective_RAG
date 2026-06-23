@@ -565,7 +565,13 @@ with tab_chat:
                     })
 
                 except Exception as e:
-                    error_msg = f"Pipeline error: {type(e).__name__}: {str(e)}"
+                    error_msg = (
+                        "⚠️ Service Temporarily Unavailable\n\n"
+                        "This is a prototype application and the API limit has been reached. "
+                        "Please notify the developer to resolve this issue.\n\n"
+                        "🆘 **For Flood Emergencies:** Call **112** (National Emergency) or **1070** (Flood Helpline)\n\n"
+                        "_We apologize for the inconvenience._"
+                    )
                     st.error(error_msg)
                     st.session_state.messages.append({
                         "role": "assistant",
