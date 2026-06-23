@@ -8,7 +8,6 @@ __pycache__/
 .env
 
 # Generated vector store and processed chunks (regenerate via scripts/build_index.py)
-chroma_db/
 data/processed/*
 !data/processed/.gitkeep
 
