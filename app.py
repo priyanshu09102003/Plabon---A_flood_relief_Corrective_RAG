@@ -565,12 +565,7 @@ with tab_chat:
                     })
 
                 except Exception as e:
-                    error_msg = (
-                        "I encountered an issue processing your request. "
-                        "Please try again, or contact emergency services directly.\n\n"
-                        "**Emergency helpline: 112**"
-                    )
-                    st.error(error_msg)
+                    st.error(f"Pipeline error: {type(e).__name__}: {str(e)}")
                     st.session_state.messages.append({
                         "role": "assistant",
                         "content": error_msg,
