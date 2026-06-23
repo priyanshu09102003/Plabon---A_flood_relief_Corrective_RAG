@@ -466,7 +466,139 @@ The internal source tags (`[Source: ndma_floods.pdf, p.12]`) exist in the raw LL
 > 📸 **Live Flood Situational Map:**
 > ![Live Map](./assets/live_map.png)
 
-[Write here]
+The chat assistant answers *what to do*. The situational map answers *what is happening right now* — and the two are deliberately kept as separate, equally-weighted tabs rather than one trying to absorb the other.
+
+Every gauge station on this map is fed by **live API calls**, auto-refreshed on a user-configurable timer (1 / 5 / 15 minutes, defaulting to 1), against real satellite basemap imagery — not a static screenshot, not a placeholder, and not synthetic data generated client-side.
+
+```mermaid
+graph TB
+    subgraph TIMER["⏱️ Auto-Refresh Loop"]
+        AR[streamlit-autorefresh<br/>Fires every 60s / 5min / 15min<br/>User-configurable]
+    end
+
+    subgraph FETCH["📡 Live Data Layer — src/map/gauge_data.py"]
+        F1[Open-Meteo Forecast API<br/>Hourly precipitation per station<br/>past_days=1 · forecast_days=2]
+        F2[Open-Meteo Flood API<br/>Daily river discharge — GloFAS model<br/>past_days=14 · forecast_days=5]
+        CACHE1["@st.cache_data ttl=300s<br/>Rainfall"]
+        CACHE2["@st.cache_data ttl=3600s<br/>Discharge"]
+        F1 --> CACHE1
+        F2 --> CACHE2
+    end
+
+    subgraph RISK["🧮 Composite Flood Risk Index"]
+        RA["24h rainfall sum<br/>capped contribution: 0–60 pts<br/>saturates near 80mm — IMD's<br/>'very heavy rainfall' threshold"]
+        RD["Discharge anomaly %<br/>today's reading vs. 14-day baseline<br/>scaled contribution: ±0.8x"]
+        RB["Baseline = 40<br/>(quiet signal → mid-NORMAL band)"]
+        RA --> RC[Composite risk %<br/>0–150 scale]
+        RD --> RC
+        RB --> RC
+    end
+
+    subgraph ALERT["🚦 Alert Classification"]
+        AC{risk %}
+        AC -->|< 70| NORMAL
+        AC -->|70–99| WARNING
+        AC -->|100–107| DANGER
+        AC -->|≥ 108| EXTREME
+    end
+
+    subgraph LOG["🔔 Threshold Crossing Log — src/map/alert_log.py"]
+        LDB[(SQLite<br/>alert_log.db)]
+        LCHECK["Compare to last known alert<br/>per station, every refresh"]
+        LEVENT["New event only on actual change<br/>e.g. WARNING → DANGER"]
+        LCHECK -->|changed| LEVENT --> LDB
+    end
+
+    subgraph RENDER["🖼️ Rendering"]
+        MAP["Folium map<br/>Esri World Imagery satellite tiles<br/>+ Assam district GeoJSON overlay"]
+        RAIN["Rainfall layer (toggleable)<br/>☁️ 🌦️ 🌧️ ⛈️ — icon + size scale with mm"]
+        CHARTS["Plotly: all-station bar chart<br/>+ 24hr trend chart"]
+        PANEL["Gauge status panel<br/>+ Recent Alert Activity feed"]
+    end
+
+    AR --> F1
+    AR --> F2
+    CACHE1 --> RA
+    CACHE2 --> RD
+    RC --> AC
+    AC --> LCHECK
+    AC --> MAP
+    AC --> CHARTS
+    AC --> PANEL
+    RA --> RAIN
+    RD --> RAIN
+    LDB --> PANEL
+```
+
+### Component 1: Live Rainfall — Open-Meteo Forecast API
+
+Each of the 9 gauge stations has fixed lat/lng coordinates. On every refresh, the app calls the Open-Meteo Forecast API per station, requesting hourly precipitation for the past day and the next two days. No API key, no rate-limit wall — this is a fully public meteorological API.
+
+The last 24 hourly readings are summed into a single **24h rainfall total (mm)** per station. The forecast hours immediately following "now" are summed separately into a **6h forecast total**, used later by the rain overlay. The response is cached for 5 minutes (`st.cache_data(ttl=300)`) — short enough to stay current, long enough that an auto-refresh tick doesn't hammer the API for nine stations every single minute.
+
+### Component 2: Live River Discharge — Open-Meteo Flood API (GloFAS)
+
+River discharge — how much water (m³/s) is actually moving through the basin — is pulled from Open-Meteo's dedicated Flood API, which is backed by the **GloFAS** (Global Flood Awareness System) hydrological model. The app requests 14 days of past daily discharge plus a 5-day forecast, per station.
+
+From this, a **discharge anomaly %** is computed: today's reading compared against the trailing 14-day mean for that exact location. A station running 30% above its own recent baseline is a meaningfully different signal than one sitting flat — this is the number that actually drives the "↑ Rising / ↓ Falling / → Stable" trend tag shown in the gauge panel. Because discharge doesn't swing minute-to-minute, this call is cached for a full hour rather than five minutes.
+
+### Component 3: The Composite Flood Risk Index
+
+This is the number that decides whether a station shows green, amber, or red. It's a deliberately simple, explainable blend of the two live signals above:
+
+```mermaid
+flowchart LR
+    R["24h rainfall (mm)"] -->|"min(rain/80, 1.0) × 60"| RC["Rain component<br/>0–60 pts"]
+    D["Discharge anomaly %"] -->|"clamp(−20%, 60%) × 0.8"| DC["Discharge component<br/>−16 to +48 pts"]
+    B["Baseline: 40"] --> SUM["Composite Risk %"]
+    RC --> SUM
+    DC --> SUM
+    SUM --> CLAMP["Clamp to 0–150%"]
+```
+
+The result is expressed on the same 0–150% "percent of danger level" scale already used throughout the dashboard, so it slots directly into the existing alert taxonomy:
+
+| Risk % | Alert |
+|---|---|
+| < 70% | 🟢 NORMAL |
+| 70–99% | 🟡 WARNING |
+| 100–107% | 🔴 DANGER |
+| ≥ 108% | ⚫ EXTREME |
+
+This same risk % also drives the **24hr trend chart** — instead of a flat synthetic line, the chart recomputes the composite risk hour-by-hour using each hour's trailing rainfall window, so the trend line genuinely reflects how the live signal moved through the day, not a cosmetic curve.
+
+### Component 4: The Map Itself — Satellite Imagery, Districts, and Rain
+
+The map is built with Folium and rendered through `streamlit-folium`. Three layers compose it:
+
+```mermaid
+graph LR
+    subgraph BASE["Base layer"]
+        SAT["Esri World Imagery<br/>Real satellite tiles — not a stylised basemap<br/>Toggleable against CartoDB dark matter"]
+    end
+    subgraph MID["District layer"]
+        GEO["Assam district GeoJSON<br/>datameet/maps — fetched live<br/>Polygon fill colour = highest alert<br/>among stations in that district"]
+    end
+    subgraph TOP["Station + rain layer"]
+        GAUGE["9 gauge station markers<br/>colour-coded by alert level<br/>popup: level, thresholds, trend"]
+        RAIN["Rainfall layer (off by default)<br/>☁️ no rain → ⛈️ very heavy<br/>icon size scales with 24h mm<br/>soft colour halo underneath"]
+    end
+    SAT --> GEO --> GAUGE --> RAIN
+```
+
+**Why satellite imagery matters here specifically:** the basemap is the **Esri World Imagery** tile service, layered as a toggleable option against the default dark CartoDB tiles. This means the terrain underneath every gauge marker is the actual current visual landscape — river braiding, floodplain extent, vegetation cover along the Brahmaputra — rather than an abstracted line-and-label map. A district turning red on the map is sitting directly on top of the real geography that's at risk.
+
+The rainfall layer sits on top, off by default to keep the base view clean. Toggled on, each station gets a cloud or rain icon — escalating from a plain ☁️ through 🌦️ and 🌧️ to a ⛈️ thunderstorm glyph as 24h rainfall increases — with a soft colour-coded halo behind it for an at-a-glance intensity read before even hovering.
+
+### Component 5: Threshold Crossing Log
+
+Every refresh, the live alert level computed for each station is compared against that station's last known level, persisted in a small local SQLite database (`alert_log.db`). Nothing is written when a station's status is unchanged — only genuine transitions (e.g. `WARNING → DANGER`) are logged, each tagged as an **ESCALATION** or **DE-ESCALATION**.
+
+This produces two things on screen: an inline banner the moment a crossing happens during the session, and a persistent **Recent Alert Activity** feed in the side panel — a real audit trail of how conditions have moved over time, not just a snapshot of where they are right now.
+
+### Component 6: Charts
+
+Two Plotly charts complete the picture — an all-station horizontal bar chart showing every gauge's current % of danger level against shaded normal/warning/danger bands, and a 24-hour trend line for whichever station is currently selected. Both consume the exact same live `current_data` dictionary the map renders from, so the numbers on the chart and the colour on the map marker are always in sync — there's a single source of truth per refresh cycle, not two systems that could drift apart.
 
 ---
 
